@@ -53,8 +53,13 @@ out.obj1= Inf;
 out.time= 0;
 
 if  display
-    fprintf('  tau     Time(sec)      Error      Objective    Level\n')
-    fprintf(' -----------------------------------------------------\n')
+    if  mk==1
+        fprintf('   Iter     Time(sec)      Error      Objective    Level\n')
+    else
+        
+        fprintf('   tau      Time(sec)      Error      Objective    Level\n')
+    end
+    fprintf(' -------------------------------------------------------\n')
 end
 
 for i   = 1:mk    
@@ -62,12 +67,13 @@ for i   = 1:mk
     outi = SNSCOsingle(x0,W0,s,Funcf,FuncG,tau0(i),mu0,gamma0,I0,r0,ceil(maxit/mk),tol,thd,iteron);
     out.time  = out.time + outi.time;
     if  display && mk>1
-        fprintf(' %5.2f     %6.4f      %.2e     %7.3f     %3d\n',...
+        fprintf('  %6.4f     %6.4f      %.2e    %8.4f      %3d\n',...
         tau0(i), out.time,outi.error,outi.obj,outi.voil) ;
     end 
     
     if  mk==1
-        out = outi;
+        out     = outi;
+        out.tau = tau0(i);
     else
         if  outi.obj  < out.obj && outi.voil<=s 
             out.obj   = outi.obj;
@@ -77,15 +83,17 @@ for i   = 1:mk
             out.error = outi.error;
             out.mark  = outi.mark;
             out.timeb = outi.time;
+            out.tau   = tau0(i);
         end     
     end  
 end
  
-fprintf(' -----------------------------------------------------\n')
+fprintf(' -------------------------------------------------------\n')
 fprintf(' Objective:     %10.4f\n',out.obj);
 fprintf(' Voilations:    %10d\n',out.voil);
 fprintf(' Time:          %6.3f sec\n',out.time);
-fprintf(' -----------------------------------------------------\n')
+fprintf(' Best tau:      %10.4f\n',out.tau);
+fprintf(' -------------------------------------------------------\n')
 end
 
 
@@ -115,7 +123,7 @@ function [gamma0,mu0,i0,r0,maxit,tau0,x0,W,tol,thd,disp] = GetParameters(K,M,N,s
     if isfield(pars,'maxit');  maxit = pars.maxit;      end
 end
 
-function out = SNSCOsingle(x,W,s,Funcf,FuncG,tau,mu,gamma,I0,r0,maxit,tol,thd,disp)
+function out = SNSCOsingle(x,W,s,Funcf,FuncG,tau,mu,gamma,I0,r0,maxit,tol,thd,display)
 
 t0    = tic;
 
@@ -134,8 +142,9 @@ d     = zeros(K,1);
 JJ    = cell(maxit,1);
 Fnorm = @(var)norm(var,'fro'); 
 TtauI = @(Lambda)Ttau(Lambda,M,s);   
-Ind   = TtauI(FuncG(x,W,[])+tau*W); 
- 
+funG  = @(v)FuncG(v,[],[]);
+Ind   = TtauI(funG(x)+tau*W); 
+fvoil = @(v)nnz(max(v,[],1)>thd);  
 for iter  = 1:maxit
     
     [f,gf,hf]      = Funcf(x); 
@@ -160,18 +169,12 @@ for iter  = 1:maxit
    end
 
     GV          = -reshape(G(Ind),[],1); 
-    Error       = Fnorm([FwV; GV]);  
-    
-    if  M==1 || M*N<1e5
-        ind     = find(max(G,[],1)>thd); 
-        voils   = nnz(ind); 
-    else  
-        voils      = feasiable(G,s); 
-    end
-    Err(iter)      = Error;
-    fail(iter)     = voils; 
-    sol(:,iter)    = x;
-    obj(iter)      = f; 
+    Error       = Fnorm([FwV; GV]);      
+    voils       = fvoil(G); 
+    Err(iter)   = Error;
+    fail(iter)  = voils; 
+    sol(:,iter) = x;
+    obj(iter)   = f; 
 
     if  voils <= s &&   bestf > f - 1e-4      
         bestf  = f;  
@@ -182,16 +185,16 @@ for iter  = 1:maxit
         bestv  = voils;
     end  
 
-    if  mod(iter,1)==0 && disp 
-        fprintf(' tau = %.2e:  %4d       %.2e     %8.4f     %8d\n',tau,iter,Error,f,voils ) 
+    if  (mod(iter,10)==0 || iter<10) && display 
+        fprintf('  %4d       %6.4f      %.2e    %8.4f      %3d\n' , iter,toc(t0),Error,f,voils) ;
     end      
    
     stop  = Error < tol && voils <=s;  
     stop0 = iter  > 9  && std(obj(iter-9:iter))<1e-6 && voils <=s;
 
     if  (stop  || stop0) && voils>0
-        if  mod(iter,10)~=0 && disp 
-            fprintf(' tau = %.2e:  %4d       %.2e     %8.4f     %8d\n',tau,iter,Error,f,voils ) 
+        if  ~(mod(iter,10)==0 || iter<10)  && display 
+            fprintf('  %4d       %6.4f      %.2e    %8.4f      %3d\n' , iter,toc(t0),Error,f,voils) ;
         end
         break; 
     end 
@@ -199,10 +202,10 @@ for iter  = 1:maxit
     nGV = size(gG,2);  
     if isempty(Ind) 
        if  nTp    == K
-           dir     = FTp/hf; 
+           dir     = hf\FTp; 
        else
            dir     = zeros(K,1); 
-           dir(Tp) = FTp/hf;  
+           dir(Tp) = hf(Tp,Tp)\FTp;  
            dir(Tn) = FTn; 
        end
     else 
@@ -211,34 +214,31 @@ for iter  = 1:maxit
             gG    = gG(Tp,:);
         end
         if  nTp <= 500 && nGV<1e5  
-            temp =  hGW(Tp)+ hf;
+            temp =  hGW(Tp,Tp)+ hf(Tp,Tp);
             gGt  = gG';  
             if  nGV   <= nTp*0.25
-                temp   = 1./temp; 
-                rhs    = gGt*(temp.*FTp)- GV;
-                D      = gGt*(temp.*gG);
+                rhs    = gGt*(temp\FTp)- GV;
+                D      = gGt*(temp\gG);
                 dV     = D\rhs; 
                 if norm(dV)>1e3*nGV+1e5*(voils==N) 
                    dV  = ( D + 1e-4*eye(nGV))\rhs; 
                 end
-                dTp    = temp.* (FTp-gG*dV); 
+                dTp    = temp\(FTp-gG*dV); 
             else     
                 muold  = mu;
                 D      = gG*gGt; 
                 rhs    = @(t)( t*FTp + gG*GV);
-                for t  = 1:2
-                    idx    = 1:(nTp+1):nTp^2; 
-                    D(idx) = D(idx) + mu*temp'; 
-                    dTp    = D\rhs(mu);  
+                for t  = 1:2 
+                    dTp    = (D+mu*temp)\rhs(mu);  
                     dV     = (gGt*dTp-GV)/mu; 
-                    if norm(dV)<1e3*nGV+1e5*(voils==N) || mu>=0.1; break;  end
+                    if norm(dV)<1e3*nGV+1e5*(voils==N) || mu>=0.5; break;  end
                     mu     = min(0.5,mu*10); 
                 end
                 mu  = muold;
             end
         else   
             rsh   = mu*FTp + gG*GV;
-            fx    = @(v) (mu*( hGW(Tp)+ hf ) +1e-2/iter).*v+gG*(v'*gG)'; 
+            fx    = @(v) (mu*( hGW(Tp,Tp)+ hf(Tp,Tp) ) + 1e-4/iter).*v+gG*(v'*gG)'; 
             dTp   = my_cg(fx,rsh,1e-6,10,zeros(nTp,1));
             dV    = ((dTp'*gG)'-GV)/mu; 
         end
@@ -263,8 +263,8 @@ for iter  = 1:maxit
     ii          = max(5,I0-2) + 2*(s/N<0.1);     
     for i       = 1:I0 
         x       = xold + step*dir(1:K);   
-        G       = FuncG(x,[],[]);
-        NG(i+1) = nnz(max(G,[],1)>thd) ; 
+        G       = funG(x);
+        NG(i+1) = fvoil(G); 
         if abs(NG(i+1)-s) <= (gamma-1)*s || ... 
            (NG(i+1) ~= N && i > ii && nnz(NG((i-ii):i)-NG(i+1))==0 )
             break; 
@@ -277,22 +277,26 @@ for iter  = 1:maxit
         t    = find(abs(s-NG)==mNG);  
         step = r0^(max(0,t(1)-2));
         x    = xold + step*dir(1:K); 
-        G    = FuncG(x,[],[]);      
+        G    = funG(x);      
     end
 
     Wold       = W;
     W          = zeros(M,N);
-    if  M     == 1     
-        W(Ind) = Wold(Ind) + step*dir(K+1:end)'; 
+    dirW       = dir(K+1:end);
+    if M       == 1
+       dirW    = dirW'; 
+    end
+    if  step   == 1  
+        W(Ind) = Wold(Ind) + dirW; 
     else 
-        W(Ind) = Wold(Ind) + step*dir(K+1:end); 
+        W(Ind) = Wold(Ind) + step*dirW;    
     end
     
     Ind = TtauI(G+tau*W);  
 
     if  mod(iter,10)==0 
         gamma = max(1,gamma-1/s);  
-        mu    = max(1e-4, min(0.9995*mu, 1e2*N*Error) ); 
+        mu    = max(1e-6, min(0.9995*mu, 1e2*N*Error) ); 
     end    
     JJ{iter} = Ind; 
     rep      = 0;  
@@ -301,7 +305,7 @@ for iter  = 1:maxit
     end
     
     if (iter > 199+100*(M==1)) || (rep  > 5)  
-       if  rep > 0 || isempty(Ind)  || iter>1e3
+       if  rep > 0 || isempty(Ind) || iter>1e3
            for j    = (iter-3):(iter-1)
                Jc   = union(Ind,JJ{j});
            end 
@@ -316,8 +320,7 @@ if  bestf == Inf || (abs(bestf-f)<1e-4 && voils<=s && bestE > Error)
     bestf = f;  
     bestx = x;
     bestG = G; 
-    bestW = W;
-    %bestE = Error; 
+    bestW = W; 
     besti = iter;
     bestv = voils;
 end  
@@ -335,7 +338,6 @@ out.error = Error;
 out.Error = Err;
 out.Obj   = obj;  
 end
-
 
 % calculate J -------------------------------------------------------------
 function J = Ttau(Lambda,M,s)
@@ -357,7 +359,6 @@ function J = Ttau(Lambda,M,s)
      J = sort(J);
 end
 
-
 % conjugate gradient-------------------------------------------------------
 function x = my_cg(fx,b,cgtol,cgit,x)
     if ~isa(fx,'function_handle'); fx = @(v)fx*v; end
@@ -376,33 +377,5 @@ function x = my_cg(fx,b,cgtol,cgit,x)
         e0 = e;
         e  = norm(r,'fro')^2;
         p  = r + (e/e0)*p;
-    end 
-   
-end
-
-
-%--------------------------------------------------------------------------
-function  voil  = feasiable(G,s)
-
-    colG = max(G,[],1); 
-    T    = find(colG>1e-4);
-    lT   = length(T);
-    if  lT  <= s
-        voil = lT;  
-    else 
-        ms  = maxk(colG,s+2);    
-        if s==1
-            tmp = sqrt(1/abs(ms(2)));    
-        else
-            tmp = sqrt(ms(s)^2/( ms(s+1)*ms(s-1) ));   
-        end
-     
-        if tmp   > 1e2
-            voil = s;   
-        else 
-            voil = nnz(colG(T)>1e-4) ;         
-        end
- 
-     
-    end
+    end   
 end
