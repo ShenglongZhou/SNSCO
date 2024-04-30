@@ -10,8 +10,8 @@ function [G,gradG,gradGW, hessGW] = FuncGNOP(x,W,Ind,A,b,K,M,N)
             gradG   = x.*AInd; 
             hessGW  = AInd*reshape(W(Ind),length(Ind),1);   
             gradGW  = x.*hessGW;  
+            hessGW  = diag(hessGW); 
         end
-    end 
- 
+    end  
 end
 
