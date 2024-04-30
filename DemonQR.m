@@ -16,6 +16,7 @@ mx     = zeros(3,3);
 X0     = [ones(K,1) 1*rand(K,1)  0*rand(K,1)]; 
 for j  = 1:size(X0,2)
     pars.x0 = X0(:,j);  
+    pars.tol= 1e-6;
     for i   = 1:nnz(s0)
         s   = s0(i);              
         c         = sqrt(2*b/chi2inv((1-s/N)^(1/M),K));
@@ -38,7 +39,7 @@ y0      = 0.16;  % margin of the bottom left corner to the bottom edge
 gapx    = 0.02;  % gap between two subplots along x axis
 gapy    = 0.07;  % gap between two subplots along y axis
 
-posFig = [820 300 log(1+Nocols)*420 log(1+Norows)*320];
+posFig = [820 400 log(1+Nocols)*420 log(1+Norows)*320];
 lx     = (1-2.95*x0-(Nocols-1)*gapx)/Nocols ;
 ly     = (1-1.6*y0-(Norows-1)*gapy)/Norows ;
 [X,Y]  = meshgrid(1:Nocols,1:Norows);
@@ -71,10 +72,10 @@ for row = 1 : Norows
             set(gca,'YTickLabel',[]);
         else
             ax = gca;  ax.YAxisLocation = 'right'; 
-            yticks([1e-5 1e-3 1e-1  10 100]);
-            yticklabels({'10^{-5}','10^{-3}','10^{-1}','10^{1}','10^{2}'})
+            yticks([1e-6 1e-4 1e-2  1e0 1e2]);
+            yticklabels({'10^{-6}','10^{-4}','10^{-2}','10^{0}','10^{2}'})
         end   
-        axis([1 ceil(max(mx(:))/10)*10 1e-6 1e3]);
+        axis([1 ceil(max(mx(:))/10)*10 1e-7 1e3]);
         xticks([10:10:ceil(max(mx(:))/10)*10]); 
         title(lgd{col},'FontWeight','Normal');
         xlabel('Iteration'); 
@@ -84,7 +85,7 @@ for row = 1 : Norows
      end
 end
 
- 
+posFig = [820 100 log(1+Nocols)*420 log(1+Norows)*320]; 
 figure('Renderer', 'painters', 'Position',posFig)
 set(0,'DefaultAxesTitleFontWeight','normal');  
 for row = 1 : Norows   
