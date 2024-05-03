@@ -63,7 +63,7 @@ if  display
 end
 
 for i   = 1:mk    
-      
+ 
     outi = SNSCOsingle(x0,W0,s,Funcf,FuncG,tau0(i),mu0,gamma0,I0,r0,ceil(maxit/mk),tol,thd,iteron);
     out.time  = out.time + outi.time;
     if  display && mk>1
@@ -118,7 +118,7 @@ function [gamma0,mu0,i0,r0,maxit,tau0,x0,W,tol,thd,disp] = GetParameters(K,M,N,s
     if isfield(pars,'i0');      i0     = pars.i0;       end
     if isfield(pars,'r0');      r0     = pars.r0;       end
     if isfield(pars,'disp');    disp   = pars.disp;     end
-    mk    = length(tau0);
+    mk    = length(tau0); 
     maxit = 2e3*(mk==1) + 250*mk*(mk>1); 
     if isfield(pars,'maxit');  maxit = pars.maxit;      end
 end
@@ -185,7 +185,7 @@ for iter  = 1:maxit
         bestv  = voils;
     end  
 
-    if  (mod(iter,10)==0 || iter<10) && display 
+    if  (mod(iter,1)==0 || iter<10) && display 
         fprintf('  %4d       %6.4f      %.2e    %8.4f      %3d\n' , iter,toc(t0),Error,f,voils) ;
     end      
    
@@ -214,28 +214,32 @@ for iter  = 1:maxit
             gG    = gG(Tp,:);
         end
         if  nTp <= 500 && nGV<1e5  
-            temp =  hGW(Tp,Tp)+ hf(Tp,Tp);
+            temp =  hGW(Tp,Tp)+ hf(Tp,Tp);  
             gGt  = gG';  
+            tnan = 0;
             if  nGV   <= nTp*0.25
-                rhs    = gGt*(temp\FTp)- GV;
-                D      = gGt*(temp\gG);
-                dV     = D\rhs; 
-                if norm(dV)>1e3*nGV+1e5*(voils==N) 
-                   dV  = ( D + 1e-4*eye(nGV))\rhs; 
-                end
-                dTp    = temp\(FTp-gG*dV); 
-            else     
-                muold  = mu;
-                D      = gG*gGt; 
-                rhs    = @(t)( t*FTp + gG*GV);
-                for t  = 1:2 
-                    dTp    = (D+mu*temp)\rhs(mu);  
-                    dV     = (gGt*dTp-GV)/mu; 
-                    if norm(dV)<1e3*nGV+1e5*(voils==N) || mu>=0.5; break;  end
-                    mu     = min(0.5,mu*10); 
-                end
-                mu  = muold;
+                rhs    = gGt*(temp\FTp)- GV; 
+                tnan   = (max(isnan(rhs))==1);  
+                if ~tnan
+                    D      = gGt*(temp\gG);
+                    dV     = D\rhs;
+                    if norm(dV)>1e3*nGV+1e5*(voils==N) 
+                       dV  = ( D + (1e-2/iter)*eye(nGV))\rhs; 
+                    end
+                    dTp    = temp\(FTp-gG*dV); 
+                end                
             end
+            
+            if  nGV    > nTp*0.25 || tnan                 
+                D      = gG*gGt+ mu*temp; 
+                if  tnan 
+                    D  = D + (1e-2/iter)*eye(nTp); 
+                end
+                rhs    = mu*FTp + gG*GV;  
+                dTp    = D\rhs;  
+                dV     = (gGt*dTp-GV)/mu;        
+            end
+                
         else   
             rsh   = mu*FTp + gG*GV;
             fx    = @(v) (mu*( hGW(Tp,Tp)+ hf(Tp,Tp) ) + 1e-4/iter).*v+gG*(v'*gG)'; 
@@ -254,7 +258,7 @@ for iter  = 1:maxit
 
     if  max(isnan(dir))==1 || Fnorm(dir) > (1e8*(M==1)+1e8*(M>1))  
         dir  = [FwV; GV]; 
-        dir  = dir/Fnorm(dir);  
+        dir  = dir/max(abs(dir));  
     end
 
     step        = 1;
@@ -274,8 +278,12 @@ for iter  = 1:maxit
  
     if  i   == I0 
         mNG  = min(abs(NG(NG>0)-s)); 
-        t    = find(abs(s-NG)==mNG);  
-        step = r0^(max(0,t(1)-2));
+        t    = find(abs(s-NG)==mNG); 
+         if  mNG == N-s && tnan 
+             step =  r0^t(end); 
+         else
+            step = r0^(max(0,t(1)-2)); 
+         end
         x    = xold + step*dir(1:K); 
         G    = funG(x);      
     end
@@ -301,12 +309,12 @@ for iter  = 1:maxit
     JJ{iter} = Ind; 
     rep      = 0;  
     if iter  > 20  
-       rep   = nnz(abs(fail(iter-5:iter)-voils)<1);  
+       rep   = nnz(abs(fail(iter-10:iter)-voils)<1);  
     end
     
-    if (iter > 199+100*(M==1)) || (rep  > 5)  
+    if (iter > 99+100*(M==1)) || (rep  > 10)  
        if  rep > 0 || isempty(Ind) || iter>1e3
-           for j    = (iter-3):(iter-1)
+           for j    = (iter-2):(iter-1)
                Jc   = union(Ind,JJ{j});
            end 
            Ind      = reshape(unique(Jc),[],1);  
