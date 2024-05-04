@@ -51,67 +51,53 @@ colors = {'#3d8c95','#225675','#e6873c'};
 lgd    = {'\alpha=0.01','\alpha=0.05','\alpha=0.10'};
 lsy    = { '-','-','-'};
 tit    = { 'x^0=1','x^0=\zeta','x^0=0'};
-figure('Renderer', 'painters', 'Position',posFig)
+
 set(0,'DefaultAxesTitleFontWeight','normal');
-for row = 1 : Norows   
-    for col    = 1 : Nocols     
-        sub    = subplot(Norows,Nocols,(row-1)*Nocols+col);       
-        for i  = 1 : nnz(s0)
-            y  = out1{i,col}(2:end);
-           %  fg = loglog(max(1,length(y)-99):length(y),y(max(1,end-99):end)); hold on
-           fg = semilogy(1:length(y),y); hold on
-           %fg = plot(1:length(y),y); hold on
-            fg.LineWidth = 1.5;
-            fg.Color     = colors{i};
-            fg.LineStyle = lsy{i};  
-        end
-        grid on; legend(tit,'Location','NorthEast');
-        if  col == 1  
-            ylabel('Error'); set(gca,'YTickLabel',[]);
-        elseif col==2  
-            set(gca,'YTickLabel',[]);
-        else
-            ax = gca;  ax.YAxisLocation = 'right'; 
-            yticks([1e-6 1e-4 1e-2  1e0 1e2]);
-            yticklabels({'10^{-6}','10^{-4}','10^{-2}','10^{0}','10^{2}'})
-        end   
-        axis([1 ceil(max(mx(:))/10)*10 1e-7 1e3]);
-        xticks([10:10:ceil(max(mx(:))/10)*10]); 
-        title(lgd{col},'FontWeight','Normal');
-        xlabel('Iteration'); 
-        set(sub, 'Position',[posX(row,col),posY(row,col),lx,ly] );
-        set(0,'DefaultAxesTitleFontWeight','normal');
-
-     end
-end
-
-posFig = [820 100 log(1+Nocols)*420 log(1+Norows)*320]; 
-figure('Renderer', 'painters', 'Position',posFig)
-set(0,'DefaultAxesTitleFontWeight','normal');  
-for row = 1 : Norows   
-    for col    = 1 : Nocols     
-        sub    = subplot(Norows,Nocols,(row-1)*Nocols+col);       
-        for i  = 1 : nnz(s0)
-            y  = out{i,col}(2:end);
-            fg = plot(1:length(y),y); hold on
-            fg.LineWidth = 1.5;
-            fg.Color     = colors{i};
-            fg.LineStyle = lsy{i};             
-        end
-        grid on; legend(tit,'Location','NorthEast');
-        if  col == 1  
-            ylabel('Objective'); set(gca,'YTickLabel',[]);
-        elseif col==2  
-            set(gca,'YTickLabel',[]);
-        else
-            ax = gca;  ax.YAxisLocation = 'right'; 
-            yticks([-8:2:-2]);
-        end   
-        axis([1 ceil(max(mx(:))/10)*10 -9 0]);
-        xticks([10:10:ceil(max(mx(:))/10)*10]); 
-        title(lgd{col},'FontWeight','Normal');
-        xlabel('Iteration'); 
-        set(sub, 'Position',[posX(row,col),posY(row,col),lx,ly] );
-        set(0,'DefaultAxesTitleFontWeight','normal');
-     end
+for test=1:2
+    posFig(2)=100+300*(test==1); 
+    figure('Renderer', 'painters', 'Position',posFig)
+    for row = 1 : Norows   
+        for col    = 1 : Nocols     
+            sub    = subplot(Norows,Nocols,(row-1)*Nocols+col);       
+            for i  = 1 : nnz(s0)
+                y  = out1{i,col}(2:end)*(test==1)+out{i,col}(2:end)*(test==2);
+                if test==1 
+                    fg = semilogy(1:length(y),y); hold on
+                else
+                    fg = plot(1:length(y),y); hold on
+                end
+                fg.LineWidth = 1.5;
+                fg.Color     = colors{i};
+                fg.LineStyle = lsy{i};  
+            end
+            grid on; legend(tit,'Location','NorthEast');
+            if test==1
+                if  col == 1  
+                    ylabel('Error'); set(gca,'YTickLabel',[]);
+                elseif col==2  
+                    set(gca,'YTickLabel',[]);
+                else
+                    ax = gca;  ax.YAxisLocation = 'right'; 
+                    yticks([1e-6 1e-4 1e-2  1e0 1e2]);
+                    yticklabels({'10^{-6}','10^{-4}','10^{-2}','10^{0}','10^{2}'})
+                end   
+                axis([1 ceil(max(mx(:))/10)*10 1e-7 1e3]);
+            else
+            	if  col == 1  
+                	ylabel('Objective'); set(gca,'YTickLabel',[]);
+                elseif col==2  
+                    set(gca,'YTickLabel',[]);
+                else
+                    ax = gca;  ax.YAxisLocation = 'right'; 
+                    yticks(-8:2:-2);   
+                end
+                axis([1 ceil(max(mx(:))/10)*10 -9 0]);   
+            end
+            xticks(10:10:ceil(max(mx(:))/10)*10);
+            title(lgd{col},'FontWeight','Normal');
+            xlabel('Iteration'); 
+            set(sub, 'Position',[posX(row,col),posY(row,col),lx,ly] );
+            set(0,'DefaultAxesTitleFontWeight','normal');
+         end
+    end
 end
