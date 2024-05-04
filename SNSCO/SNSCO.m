@@ -155,10 +155,10 @@ for iter  = 1:maxit
     nTp            = length(Tp);  
      
    if nTp==K  || nTp ==0
-        FTp    = -gfG; 
-        FwV    = tau*FTp;
-       Tp      = T;
-       nTp     = K;
+        FTp     = -gfG; 
+        FwV     = tau*FTp;
+        Tp      = T;
+        nTp     = K;
    else
         Tn      = T;
         Tn(Tp)  = []; 
@@ -228,8 +228,7 @@ for iter  = 1:maxit
                     end
                     dTp    = temp\(FTp-gG*dV); 
                 end                
-            end
-            
+            end         
             if  nGV    > nTp*0.25 || tnan                 
                 D      = gG*gGt+ mu*temp; 
                 if  tnan 
@@ -238,11 +237,10 @@ for iter  = 1:maxit
                 rhs    = mu*FTp + gG*GV;  
                 dTp    = D\rhs;  
                 dV     = (gGt*dTp-GV)/mu;        
-            end
-                
+            end                
         else   
             rsh   = mu*FTp + gG*GV;
-            fx    = @(v) (mu*( hGW(Tp,Tp)+ hf(Tp,Tp) ) + 1e-4/iter).*v+gG*(v'*gG)'; 
+            fx    = @(v)  ( hGW(Tp,Tp)+ hf(Tp,Tp) )*(mu*v) + (1e-2/iter)*v + gG*(v'*gG)'; 
             dTp   = my_cg(fx,rsh,1e-6,10,zeros(nTp,1));
             dV    = ((dTp'*gG)'-GV)/mu; 
         end
