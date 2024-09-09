@@ -185,7 +185,7 @@ for iter  = 1:maxit
         bestv  = voils;
     end  
 
-    if  (mod(iter,1)==0 || iter<10) && display 
+    if  (mod(iter,10)==0 || iter<10) && display 
         fprintf('  %4d       %6.4f      %.2e    %8.4f      %3d\n' , iter,toc(t0),Error,f,voils) ;
     end      
    
