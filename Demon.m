@@ -4,7 +4,7 @@ addpath(genpath(pwd));
 K     = 10; 
 M     = 10; 
 N     = 100;
-alpha = 0.1;
+alpha = 0.05;
 s     = ceil(alpha*N);
 
 b     = 5;
@@ -27,4 +27,9 @@ FuncG      = @(x,W,J)FuncGNOP(x,W,J,A,b,K,M,N);
 P          = 50-25*(alpha==0.01);    
 pars.tau0  = logspace(log10(0.5),log10(1.75),P); 
 out        = SNSCO(K,M,N,s,Funcf,FuncG,pars);
-            
+
+% Solving problem under the best tau
+fprintf(' \n\n   Solving the problem under the best tau = %.4f\n',out.tau)
+fprintf(' -------------------------------------------------------\n')
+pars.tau0  = out.tau; 
+out        = SNSCO(K,M,N,s,Funcf,FuncG,pars);
